@@ -1,5 +1,7 @@
 # conexpro-bms-bridge
 
+🇬🇧 **English**  ·  🇨🇿 [Česky](README.cs.md)
+
 > **Conexpro Smart BMS Bluetooth → MQTT bridge** for Conexpro LiFePO4 batteries
 > (and any other JBD-chipset BMS — Xiaoxiang, Jiabaida, LLT Power, Overkill
 > Solar, Daly-rebrand, …). Self-hosted, no cloud, no Home Assistant required,
@@ -16,17 +18,20 @@ If your battery is sold as **"Smart BMS, Bluetooth"** by any of these vendors,
 this bridge almost certainly works with it:
 
 * **Conexpro** — LiFePO4 12 V / 24 V / 48 V series with built-in Bluetooth
-  Smart BMS (the Xiaoxiang / Little Elephant Android app is what they ship to
-  read it; this bridge speaks the same wire protocol)
+  Smart BMS (this bridge speaks the same Bluetooth wire protocol the official
+  vendor app uses)
 * **JBD** (Jiabaida) — original chipset manufacturer, all SP04S / SP15S /
   SP17S / SP21S / SP24S families
-* **Xiaoxiang** branded packs
+* **Xiaoxiang**-branded packs
 * **LLT Power** BMS modules
 * **Overkill Solar** BMS (US distributor of JBD)
-* **Daly** rebrands marked compatible with the Xiaoxiang app
-* Most "JBD-SP*", "JBD-AP*", "JBD-UP*" advertised over BLE
-* Any battery whose phone app is [Xiaoxiang](https://play.google.com/store/apps/details?id=com.xiaoxiang.battery)
-  or [Little Elephant / 小象](https://play.google.com/store/apps/details?id=com.jiabaida.little_elephant)
+* **Daly** rebrands of JBD-family hardware
+* Most "JBD-SP*", "JBD-AP*", "JBD-UP*" devices advertised over BLE
+* Any BMS that ships with an official Bluetooth-enabled mobile app from the
+  BMS vendor and exposes GATT service `0xFF00`
+
+If you can scan the device with `bluetoothctl` and see the BLE service UUID
+`0000ff00-…` in its advertisement, this bridge will most likely talk to it.
 
 The bridge connects to GATT service `0xFF00` and uses the documented JBD
 register set (0x03 basic info, 0x04 cell voltages, 0x05 hardware version,
@@ -36,14 +41,10 @@ JBD-family BMS, so any of the above should work.
 
 ## How the protocol was obtained
 
-Reverse-engineered from the
-[`xiaoxiang`](https://play.google.com/store/apps/details?id=com.xiaoxiang.battery)
-and
-[`Little Elephant / 小象`](https://play.google.com/store/apps/details?id=com.jiabaida.little_elephant)
-Android apps (decompiled with `jadx`, traced through `BluetoothUtil` and
-`BMSCommandEntity`). All BMS vendor rebrands sold under those apps use the
-same wire format, GATT UUIDs, and frame encoding. Full byte-by-byte spec is
-in [`docs/PROTOCOL.md`](docs/PROTOCOL.md).
+Documented through interoperability research on the official Bluetooth
+interface of these BMS, then validated against captured frames from a
+production unit. Full byte-by-byte spec is in
+[`docs/PROTOCOL.md`](docs/PROTOCOL.md).
 
 **Read-only.** No control commands are sent to the BMS. The protocol document
 covers writable opcodes (factory mode, MOSFET switch, sleep, balance) for
@@ -105,8 +106,8 @@ You need:
   one BLE central can talk to the BMS at a time).
 
 ```bash
-git clone https://github.com/lvacek2026/conexpro-bms-bridge.git
-cd conexpro-bms-bridge
+git clone <this-repo>
+cd <this-repo>/services/conexpro-bms-bridge
 cp .env.example .env
 
 # (optional) discover your BMS MAC on the host
@@ -244,9 +245,8 @@ your judgement.
 ## Keywords
 
 Conexpro Smart BMS, Conexpro Bluetooth, Conexpro LiFePO4, Conexpro 12V 24V
-48V, JBD BMS MQTT, Xiaoxiang BMS Linux, Xiaoxiang Raspberry Pi, JBD BLE
-bridge, Smart BMS Bluetooth Docker, JBD-SP04S, JBD-SP15S, JBD-SP17S,
-JBD-SP21S, LiFePO4 monitor MQTT, Home Assistant Conexpro, Node-RED Smart BMS,
-LFP battery telemetry, BMS reverse engineering, BLE GATT 0xFF00 0xFF01
-0xFF02, JBD frame DD A5, jadx Xiaoxiang, Little Elephant 小象 BMS, IoT camper
-LiFePO4, RV battery monitor, motorhome BMS, off-grid solar BMS.
+48V, JBD BMS MQTT, JBD BLE bridge, Smart BMS Bluetooth Docker, JBD-SP04S,
+JBD-SP15S, JBD-SP17S, JBD-SP21S, LiFePO4 monitor MQTT, Home Assistant
+Conexpro, Node-RED Smart BMS, LFP battery telemetry, BLE GATT 0xFF00 0xFF01
+0xFF02, JBD frame DD A5, IoT camper LiFePO4, RV battery monitor, motorhome
+BMS, off-grid solar BMS.

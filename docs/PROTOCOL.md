@@ -1,8 +1,12 @@
 # Conexpro / JBD / Xiaoxiang BMS — BLE protocol reference
 
-> Reverse-engineered from `apk/com.jiabaida.little_elephant_3.2.058.xapk` and
-> `apk/xiaoxiang_3.2.008.apk`. Both apps speak the same wire protocol. Conexpro
-> is a rebrand — the BMS in our camper is the same chipset family.
+🇬🇧 **English**  ·  🇨🇿 [Česky](PROTOCOL.cs.md)
+
+> Documented through interoperability research on the official Bluetooth
+> interface of these BMS, then validated against captured frames from a
+> production unit. Conexpro / Xiaoxiang / Jiabaida / LLT Power / Overkill
+> Solar are all rebrands of the same JBD chipset and speak this exact
+> protocol.
 
 ## TL;DR
 
@@ -20,16 +24,29 @@
 TX read:    DD A5 [reg] 00 [csum_hi] [csum_lo] 77        (7 bytes)
 TX write:   DD 5A [reg] [N] [data 0..N-1] [csum_hi] [csum_lo] 77
 RX:         DD [reg] [status] [N] [data 0..N-1] [csum_hi] [csum_lo] 77
-            └─ status: 0x00 OK, 0x80 error
+            └─ status: 0x00 OK, 0x80/0x81 error
 ```
 
-**Checksum:** `((~(sum(data_bytes) + N + reg)) + 1) & 0xFFFF`, big-endian
-(hi byte first). For an empty payload (`N=0`) this collapses to
-`(-reg) & 0xFFFF`.
+**Checksum:**
+
+| Direction | Formula |
+|-----------|---------|
+| TX (app → BMS) | `((~(sum(data) + N + reg)) + 1) & 0xFFFF`, big-endian (hi, lo) |
+| RX (BMS → app) | `((~(sum(data) + N + status)) + 1) & 0xFFFF`, big-endian (hi, lo) |
+
+> The two formulas look identical because for a successful response
+> `status == 0x00` is at the same byte offset as `reg` is in a TX frame
+> (offset 2). Compute the checksum over `byte[2] + byte[3] + payload`. The
+> distinction matters when the BMS returns an error (`status == 0x80`/
+> `0x81`) — verifying with the register byte instead of the status byte will
+> wrongly reject the frame.
+
+For an empty TX payload (`N=0`) the checksum collapses to `(-reg) & 0xFFFF`.
+So a "read register 0x03" frame is always `DD A5 03 00 FF FD 77`.
 
 A complete frame is split across multiple BLE notifications because the
-default ATT MTU is 23 bytes (= 20 bytes payload). Re-frame on the receiver by
-locking onto `0xDD` and using the length byte at offset 3.
+default ATT MTU is 23 bytes (= 20 bytes payload). Re-frame on the receiver
+by locking onto `0xDD` and using the length byte at offset 3.
 
 ## Read registers
 
@@ -38,19 +55,17 @@ locking onto `0xDD` and using the length byte at offset 3.
 | `0x03` | Basic info — voltage, current, SOC, FET, balance, protections, temperatures | see below |
 | `0x04` | Cell voltages | `N × u16 BE` in mV |
 | `0x05` | Hardware version | ASCII / GB2312 string |
-| `0xA0` | Manufacturer name | GB2312 string |
+| `0xA0` | Manufacturer name | GB2312 string (some firmwares respond `0x81`) |
 | `0x2E` | NTC details | per-NTC raw values |
 | `0xAA` | Protection event counters (cumulative) | structured |
 | `0xAB` | Charge / discharge history | structured |
 | `0xF6` | Per-cell internal resistance | `N × u16` |
 | `0xFA` | All EEPROM parameters | full settings dump |
 
-The bridge (or your custom client) really only needs `0x03` + `0x04` for live
-telemetry. `0x05` and `0xA0` are nice-to-have once at connect.
+The bridge (or your custom client) really only needs `0x03` + `0x04` for
+live telemetry. `0x05` and `0xA0` are nice-to-have once at connect.
 
 ## Register `0x03` — basic info payload
-
-Decoded from `BMSBaseInfoCMDEntity.formatParams` in the APK:
 
 | Offset | Size | Field | Scale / notes |
 |---|---|---|---|
@@ -79,8 +94,7 @@ Decoded from `BMSBaseInfoCMDEntity.formatParams` in the APK:
 
 ### Protection bitmap (16 bits)
 
-The APK reads byte 17 as low byte (bits 0..7) and byte 16 as high byte
-(bits 8..15):
+Byte 17 is the low byte (bits 0..7), byte 16 is the high byte (bits 8..15):
 
 | Bit | Flag |
 |-----|------|
@@ -119,32 +133,28 @@ Example response payload for 4S at 3.32 V/3.322 V/3.315 V/3.321 V:
 | `0x0A` | `0x5A` | MOSFET / control sub-command | first byte = sub-cmd: `01` reset capacity, `02` clear records, `03` reboot, `04` clear protection, `05` sleep, `06` deep sleep, `07` open balance |
 | `0xFB` | `0x5A` | Switch (charge / discharge enable) | `[which][state]` — which: `0`=discharge, `1`=charge, `2`=predischarge; state: `0`=open (on), `1`=close (off) |
 
-> **None of these are sent by `services/batmon-ha/`.** They are listed only
-> because the user asked for full protocol coverage. Writing settings
-> requires entering factory mode (`0x00 56 78`) first; forgetting the
-> matching exit (`0x01 00 00` to commit, `0x01 28 28` to discard) leaves the
-> BMS in a transient state.
+> **None of these are sent by this bridge.** They are listed only for
+> protocol completeness. Writing settings requires entering factory mode
+> (`0x00 56 78`) first; forgetting the matching exit (`0x01 00 00` to
+> commit, `0x01 28 28` to discard) leaves the BMS in a transient state.
+> Test against a non-critical bench unit before touching anything live.
 
 ## Reference Python parser
 
 A standalone, dependency-free implementation is at
-[`../jbd_protocol.py`](../jbd_protocol.py). It builds and
-verifies frames, reassembles BLE-MTU chunks, and parses `0x03`, `0x04`,
-`0x05`, and `0xA0`. Useful for ad-hoc debugging:
+[`../jbd_protocol.py`](../jbd_protocol.py). It builds and verifies frames,
+reassembles BLE-MTU chunks, and parses `0x03`, `0x04`, `0x05`, and `0xA0`.
+Useful for ad-hoc debugging:
 
 ```python
 from jbd_protocol import build_read_frame, FrameAssembler, parse_basic, verify_frame
 print(build_read_frame(0x03).hex())  # → "dda50300fffd77"
 ```
 
-## Source provenance
+## Validation
 
-* `apk/xiaoxiang_3.2.008.apk` → `com.jiabaida.little_elephant.util.BluetoothUtil`
-  (UUIDs), `com.jiabaida.little_elephant.entity.BMSCommandEntity`
-  (frame + checksum), `BMSBaseInfoCMDEntity` (0x03 layout),
-  `BMSBatteryVoltageCMDEntity` (0x04 layout), `BMSManufacturerCMDEntity`
-  (0xA0), `BMSControlCMDEntity` (0x0A sub-commands),
-  `BMSFactoryModeCMDEntity` / `BMSCloseFactoryModeCMDEntity`
-  (0x00 / 0x01), `BMSSwitchCMDEntity` (0xFB).
-* The `com.jiabaida.little_elephant_3.2.058.xapk` ships an identical
-  `BluetoothUtil` and entity tree — same vendor, newer build.
+The protocol described here was verified end-to-end on a production
+**Conexpro 12.8 V / 150 Ah LFP** (advertised name `JBD-SP04S034-L4S-150A`,
+firmware 2.4) over hci0 BlueZ on a Raspberry Pi. All field semantics, the
+checksum quirk, register support set, and frame fragmentation behaviour
+match the documentation above.
