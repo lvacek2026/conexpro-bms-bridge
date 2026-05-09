@@ -1,0 +1,28 @@
+# Conexpro / JBD / Xiaoxiang BMS → MQTT bridge
+#
+# Reusable across deployments. Per-installation config goes in `.env` next to
+# this file (copy from `.env.example`). The compose itself is generic.
+#
+# Bluetooth must be unblocked + UP on the host:
+#   sudo rfkill unblock bluetooth
+#   sudo systemctl enable --now bluetooth
+#   hciconfig hci0 up
+#
+# IMPORTANT — only one BLE central can hold a GATT connection to the BMS at
+# any time. Close the Xiaoxiang/Little-Elephant phone app while this bridge
+# is running, otherwise both sides time out.
+
+services:
+  conexpro-bms-bridge:
+    build: .
+    image: conexpro-bms-bridge:latest
+    container_name: conexpro-bms-bridge
+    network_mode: host        # access the host's BlueZ stack
+    privileged: true          # raw HCI / DBus access
+    restart: unless-stopped
+    cap_add:
+      - NET_ADMIN
+    env_file:
+      - .env
+    volumes:
+      - /var/run/dbus:/var/run/dbus

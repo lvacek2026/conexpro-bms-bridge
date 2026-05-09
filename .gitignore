@@ -1,0 +1,2 @@
+# Per-deployment secrets and per-host config (BMS_MAC, MQTT credentials, …)
+.env
