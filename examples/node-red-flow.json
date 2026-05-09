@@ -4,7 +4,7 @@
         "type": "tab",
         "label": "BMS — Conexpro",
         "disabled": false,
-        "info": "Subscribes to the conexpro-bms-bridge state topic (default `bms/main/state`),\nstashes the full snapshot in `flow.bms_latest`, and maps the project-relevant\nfields into `global.telemetry` so the dashboard composer (`fn_assemble`) picks\nthem up.\n\nThe bridge already emits the canonical schema, so this flow does very little —\njust availability tracking, the flow stash, and a tiny mapping into the\nglobal telemetry the rest of the dashboard pipeline already reads.\n\nDeploy alongside `services/conexpro-bms-bridge/` (sister Docker container).\n\nFields written into global.telemetry (consumed by fn_assemble):\n\n  house_battery_percent  ← bms.soc_pct\n  house_battery_voltage  ← bms.voltage_v\n  house_battery_current  ← bms.current_a\n  house_battery_power    ← bms.power_w\n\nFlow context kept for ad-hoc reads (e.g. cell delta on the dashboard later):\n\n  flow.bms_latest        full document (object, see service README)\n  flow.bms_status        \"online\" / \"offline\"\n  flow.bms_latest_at     epoch seconds of last successful read",
+        "info": "Subscribes to the conexpro-bms-bridge state topic (default `bms/main/state`),\nstashes the full snapshot in `flow.bms_latest`, maps the dashboard-relevant\nfields into `global.telemetry`, and writes time-series data to InfluxDB with\nper-metric decimation:\n\n  bms_live    — every tick (~30 s):  voltage_v, current_a, power_w, soc_pct,\n                                     remaining_ah, *_mosfet, balance_active,\n                                     protection_active\n  bms_state   — every 5 min OR on significant change of cell delta /\n                protection / balance state: cell_min/max/delta + indices\n  bms_cells   — every 10 min OR on >5 mV change: per-cell voltage tagged\n                with cell_idx (Grafana GROUP BY cell_idx)\n  bms_temps   — every 10 min OR on >0.5 °C change: per-NTC temp tagged\n                with ntc_idx\n  bms_meta    — every hour: cycle_count, capacity_ah, cell_count, ntc_count\n\nThe write-decimating function uses flow context for last-write-at\ntimestamps. Disabling InfluxDB simply means deleting the bms_to_influx +\ninflux_out nodes; everything else (live MQTT consumption, dashboard\ncomposer mapping) keeps working.",
         "env": []
     },
     {
@@ -37,7 +37,7 @@
         "libs": [],
         "x": 430,
         "y": 100,
-        "wires": [["bms_debug"]]
+        "wires": [["bms_debug", "bms_to_influx"]]
     },
     {
         "id": "bms_debug",
@@ -52,8 +52,41 @@
         "targetType": "msg",
         "statusVal": "",
         "statusType": "auto",
-        "x": 700,
-        "y": 100,
+        "x": 740,
+        "y": 60,
+        "wires": []
+    },
+    {
+        "id": "bms_to_influx",
+        "type": "function",
+        "z": "bms_tab_v1",
+        "name": "decimate → influx writes",
+        "func": "// Per-metric decimation. Splits one BMS document into 1..N influx writes,\n// each shaped as msg.payload = [fieldsObj, tagsObj] + msg.measurement = ...\n// Returns a single output that is an array of messages.\nconst p = msg.payload;\nif (!p || typeof p !== 'object') return null;\n\nconst now = Date.now();\nconst out = [];\nconst tagsBase = { device: 'main' };\n\n// ─── HOT (every tick, ~30 s) ─────────────────────────────────────────\nout.push({\n    measurement: 'bms_live',\n    payload: [\n        {\n            voltage_v:          p.voltage_v          ?? null,\n            current_a:          p.current_a          ?? null,\n            power_w:            p.power_w            ?? null,\n            soc_pct:            p.soc_pct            ?? null,\n            remaining_ah:       p.remaining_ah       ?? null,\n            charging_mosfet:    p.charging_mosfet    ? 1 : 0,\n            discharging_mosfet: p.discharging_mosfet ? 1 : 0,\n            balance_active:     p.balance_active     ? 1 : 0,\n            protection_active:  p.protection_active  ? 1 : 0,\n        },\n        tagsBase,\n    ],\n});\n\nconst num = (v, fallback = 0) => (typeof v === 'number' && isFinite(v)) ? v : fallback;\n\n// ─── MEDIUM (5 min, or on protection / balance / cell-delta change) ──\nconst lastMedAt    = flow.get('bms_inf_med_at')    || 0;\nconst lastDelta    = flow.get('bms_inf_med_delta') ?? 0;\nconst lastProt     = flow.get('bms_inf_med_prot')  ?? null;\nconst lastBal      = flow.get('bms_inf_med_bal')   ?? null;\nconst medThreshMs  = 5 * 60 * 1000;\nconst medChange    =\n    Math.abs(num(p.cell_delta_v) - lastDelta) > 0.005 ||\n    p.protection_active !== lastProt ||\n    p.balance_active    !== lastBal;\n\nif (now - lastMedAt > medThreshMs || medChange) {\n    out.push({\n        measurement: 'bms_state',\n        payload: [\n            {\n                cell_min_v:   p.cell_min_v   ?? null,\n                cell_max_v:   p.cell_max_v   ?? null,\n                cell_delta_v: p.cell_delta_v ?? null,\n                cell_min_idx: p.cell_min_idx ?? null,\n                cell_max_idx: p.cell_max_idx ?? null,\n            },\n            tagsBase,\n        ],\n    });\n    flow.set('bms_inf_med_at',    now);\n    flow.set('bms_inf_med_delta', num(p.cell_delta_v));\n    flow.set('bms_inf_med_prot',  p.protection_active);\n    flow.set('bms_inf_med_bal',   p.balance_active);\n}\n\n// ─── PER-CELL (10 min, or on >5 mV per-cell change) ──────────────────\nconst lastCellsAt = flow.get('bms_inf_cells_at') || 0;\nconst lastCells   = flow.get('bms_inf_cells_v')  || [];\nconst cellsThreshMs = 10 * 60 * 1000;\nconst cells = Array.isArray(p.cells_v) ? p.cells_v : [];\nconst cellsChanged =\n    cells.length !== lastCells.length ||\n    cells.some((v, i) => Math.abs(v - (lastCells[i] ?? 0)) > 0.005);\n\nif (cells.length && (now - lastCellsAt > cellsThreshMs || cellsChanged)) {\n    cells.forEach((v, i) => {\n        out.push({\n            measurement: 'bms_cells',\n            payload: [{ voltage_v: v }, { ...tagsBase, cell_idx: String(i + 1) }],\n        });\n    });\n    flow.set('bms_inf_cells_at', now);\n    flow.set('bms_inf_cells_v',  cells.slice());\n}\n\n// ─── PER-NTC TEMPS (10 min, or on >0.5 °C change) ────────────────────\nconst lastTempsAt = flow.get('bms_inf_temps_at') || 0;\nconst lastTemps   = flow.get('bms_inf_temps_v')  || [];\nconst tempsThreshMs = 10 * 60 * 1000;\nconst temps = Array.isArray(p.temperatures_c) ? p.temperatures_c : [];\nconst tempsChanged =\n    temps.length !== lastTemps.length ||\n    temps.some((v, i) => Math.abs(v - (lastTemps[i] ?? 0)) > 0.5);\n\nif (temps.length && (now - lastTempsAt > tempsThreshMs || tempsChanged)) {\n    temps.forEach((t, i) => {\n        out.push({\n            measurement: 'bms_temps',\n            payload: [{ temp_c: t }, { ...tagsBase, ntc_idx: String(i + 1) }],\n        });\n    });\n    flow.set('bms_inf_temps_at', now);\n    flow.set('bms_inf_temps_v',  temps.slice());\n}\n\n// ─── STATIC (hourly) ─────────────────────────────────────────────────\nconst lastMetaAt = flow.get('bms_inf_meta_at') || 0;\nif (now - lastMetaAt > 60 * 60 * 1000) {\n    out.push({\n        measurement: 'bms_meta',\n        payload: [\n            {\n                cycle_count: p.cycle_count ?? null,\n                capacity_ah: p.capacity_ah ?? null,\n                cell_count:  p.cell_count  ?? null,\n                ntc_count:   p.ntc_count   ?? null,\n            },\n            tagsBase,\n        ],\n    });\n    flow.set('bms_inf_meta_at', now);\n}\n\nnode.status({ fill: 'blue', shape: 'dot', text: `${out.length} write(s) @ ${new Date().toLocaleTimeString()}` });\nreturn [out];\n",
+        "outputs": 1,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 750,
+        "y": 140,
+        "wires": [["bms_influx_out"]]
+    },
+    {
+        "id": "bms_influx_out",
+        "type": "influxdb out",
+        "z": "bms_tab_v1",
+        "influxdb": "bms_influx_cfg",
+        "name": "→ influx bms.*",
+        "measurement": "",
+        "precision": "ms",
+        "retentionPolicy": "",
+        "database": "database",
+        "precisionV18FluxV20": "ms",
+        "retentionPolicyV18Flux": "",
+        "org": "organisation",
+        "bucket": "bucket",
+        "x": 1010,
+        "y": 140,
         "wires": []
     },
     {
@@ -70,7 +103,7 @@
         "rh": 1,
         "inputs": 0,
         "x": 170,
-        "y": 180,
+        "y": 240,
         "wires": [["bms_avail_fn"]]
     },
     {
@@ -85,7 +118,7 @@
         "finalize": "",
         "libs": [],
         "x": 470,
-        "y": 180,
+        "y": 240,
         "wires": [[]]
     },
     {
@@ -114,5 +147,19 @@
         "willMsg": {},
         "userProps": "",
         "sessionExpiry": ""
+    },
+    {
+        "id": "bms_influx_cfg",
+        "type": "influxdb",
+        "hostname": "influxdb",
+        "port": "8086",
+        "protocol": "http",
+        "database": "bms",
+        "name": "InfluxDB (local) bms",
+        "usetls": false,
+        "tls": "",
+        "influxdbVersion": "1.x",
+        "url": "http://influxdb:8086",
+        "rejectUnauthorized": false
     }
 ]

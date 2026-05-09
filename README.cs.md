@@ -181,17 +181,50 @@ prostrkávat ho přes Docker NAT je víc bolesti než užitku. Stejný pattern j
 
 * **Node-RED** — `mqtt in` node odebírající `<MQTT_TOPIC>/state` s
   `Output: a parsed JSON object`. Přiložený flow je v
-  [`examples/node-red-flow.json`](examples/node-red-flow.json) — odebírá data,
-  vystavuje poslední snapshot v `flow.bms_latest` a ukazuje na node-statusu
-  živé SoC / V / A.
+  [`examples/node-red-flow.json`](examples/node-red-flow.json) — odebírá
+  data, vystavuje poslední snapshot v `flow.bms_latest`, **zapisuje
+  decimovanou time series do InfluxDB 1.x** (viz schéma níže) a na
+  node-statusu ukazuje živé SoC / V / A.
 * **Home Assistant** — nastav `HA_DISCOVERY=true` a HA si vytvoří zařízení
   „Conexpro BMS" s entitami pro napětí / proud / SoC / per-cell / MOSFET /
   faulty. Žádné YAML.
-* **InfluxDB / Grafana** — namiř Telegraf `[[inputs.mqtt_consumer]]` na
-  `<MQTT_TOPIC>/state` s parsováním JSON; každé číselné pole se stane
-  measurementem.
+* **InfluxDB + Grafana** — Node-RED flow výše zapisuje do InfluxDB
+  s per-metric decimací (viz „InfluxDB schéma" níže). Hotový dashboard je
+  [`examples/grafana-dashboard.json`](examples/grafana-dashboard.json) —
+  drop-in import (Grafana → Dashboards → New → Import → Upload JSON, pak
+  vyber svůj InfluxDB datasource).
+* **Telegraf přímo** — alternativně namiř Telegraf
+  `[[inputs.mqtt_consumer]]` na `<MQTT_TOPIC>/state` s parsováním JSON;
+  každé číselné pole se stane measurementem (ale bez decimace).
 * **Cokoliv jiného** — topic je čistý JSON. Odběr přes `mosquitto_sub`,
   Pythonem `paho-mqtt`, MQTT.js, jak chceš.
+
+### InfluxDB schéma (zapisuje přiložený Node-RED flow)
+
+Funkce `decimate → influx writes` ve flow rozdělí jeden BMS dokument
+(přicházející každých `POLL_INTERVAL`, default 30 s) do více zápisů
+s různou frekvencí, abys nehromadil gigabajty redundantních samplů
+`cycle_count` a přitom zachytil každý charge/discharge transient.
+
+| Měření | Frekvence | Tagy | Pole |
+|--------|-----------|------|------|
+| `bms_live`  | každý tick (~30 s) | `device` | `voltage_v`, `current_a`, `power_w`, `soc_pct`, `remaining_ah`, `charging_mosfet`, `discharging_mosfet`, `balance_active`, `protection_active` (booly jako 0/1) |
+| `bms_state` | každých 5 min NEBO na změně cell-delta / protection / balance | `device` | `cell_min_v`, `cell_max_v`, `cell_delta_v`, `cell_min_idx`, `cell_max_idx` |
+| `bms_cells` | každých 10 min NEBO na změně >5 mV per článek | `device`, `cell_idx` | `voltage_v` (per článek) |
+| `bms_temps` | každých 10 min NEBO na změně >0.5 °C | `device`, `ntc_idx` | `temp_c` (per NTC) |
+| `bms_meta`  | hodinově | `device` | `cycle_count`, `capacity_ah`, `cell_count`, `ntc_count` |
+
+Doporučené nastavení DB (jednorázově):
+
+```bash
+docker exec influxdb influx -execute "CREATE DATABASE bms WITH DURATION 90d"
+docker exec influxdb influx -execute "CREATE RETENTION POLICY \"1y_hourly\" ON \"bms\" DURATION 365d REPLICATION 1"
+docker exec influxdb influx -execute "CREATE CONTINUOUS QUERY cq_bms_live_hourly ON bms BEGIN SELECT mean(voltage_v) AS voltage_v, mean(current_a) AS current_a, mean(power_w) AS power_w, mean(soc_pct) AS soc_pct, mean(remaining_ah) AS remaining_ah, max(current_a) AS current_max_a, min(current_a) AS current_min_a INTO \"1y_hourly\".bms_live_1h FROM bms_live GROUP BY time(1h), * END"
+```
+
+Tím dostaneš **90 dní plné resoluce** raw dat + **1 rok hodinových
+agregátů** automaticky downsamplovaných. Na 4S BMS to je hluboko pod
+100 MB / rok.
 
 ## Troubleshooting
 

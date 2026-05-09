@@ -1,0 +1,494 @@
+{
+  "annotations": {
+    "list": [
+      {
+        "builtIn": 1,
+        "datasource": { "type": "grafana", "uid": "-- Grafana --" },
+        "enable": true,
+        "hide": true,
+        "iconColor": "rgba(0, 211, 255, 1)",
+        "name": "Annotations & Alerts",
+        "type": "dashboard"
+      }
+    ]
+  },
+  "description": "Conexpro / JBD / Xiaoxiang Smart BMS — live state, power flow, per-cell voltages, temperatures, MOSFET / balance / protection state, and meta. Designed for the schema written by node-red-contrib-influxdb from the conexpro-bms-bridge MQTT data.",
+  "editable": true,
+  "fiscalYearStartMonth": 0,
+  "graphTooltip": 1,
+  "id": null,
+  "links": [],
+  "liveNow": false,
+  "panels": [
+    {
+      "id": 1,
+      "type": "gauge",
+      "title": "State of charge",
+      "gridPos": { "x": 0, "y": 0, "w": 5, "h": 6 },
+      "datasource": { "type": "influxdb", "uid": "${DS_INFLUXDB_BMS}" },
+      "targets": [
+        {
+          "refId": "A",
+          "rawQuery": true,
+          "query": "SELECT last(\"soc_pct\") FROM \"bms_live\" WHERE $timeFilter",
+          "resultFormat": "time_series"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percent",
+          "min": 0, "max": 100,
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "color": "red",    "value": null },
+              { "color": "orange", "value": 20 },
+              { "color": "yellow", "value": 40 },
+              { "color": "green",  "value": 60 }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "showThresholdLabels": false,
+        "showThresholdMarkers": true,
+        "orientation": "auto"
+      }
+    },
+    {
+      "id": 2,
+      "type": "stat",
+      "title": "Pack voltage",
+      "gridPos": { "x": 5, "y": 0, "w": 4, "h": 3 },
+      "datasource": { "type": "influxdb", "uid": "${DS_INFLUXDB_BMS}" },
+      "targets": [
+        {
+          "refId": "A",
+          "rawQuery": true,
+          "query": "SELECT last(\"voltage_v\") FROM \"bms_live\" WHERE $timeFilter",
+          "resultFormat": "time_series"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "volt",
+          "decimals": 2,
+          "color": { "mode": "thresholds" },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "color": "red",    "value": null },
+              { "color": "orange", "value": 12.0 },
+              { "color": "green",  "value": 12.8 },
+              { "color": "orange", "value": 14.6 },
+              { "color": "red",    "value": 14.8 }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "colorMode": "background",
+        "graphMode": "area",
+        "justifyMode": "center",
+        "textMode": "value"
+      }
+    },
+    {
+      "id": 3,
+      "type": "stat",
+      "title": "Current",
+      "gridPos": { "x": 9, "y": 0, "w": 3, "h": 3 },
+      "datasource": { "type": "influxdb", "uid": "${DS_INFLUXDB_BMS}" },
+      "targets": [
+        {
+          "refId": "A",
+          "rawQuery": true,
+          "query": "SELECT last(\"current_a\") FROM \"bms_live\" WHERE $timeFilter",
+          "resultFormat": "time_series"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "amp",
+          "decimals": 2,
+          "color": { "mode": "thresholds" },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "color": "red",    "value": null },
+              { "color": "orange", "value": -100 },
+              { "color": "blue",   "value": -0.1 },
+              { "color": "gray",   "value": 0 },
+              { "color": "green",  "value": 0.1 },
+              { "color": "orange", "value": 100 }
+            ]
+          }
+        }
+      },
+      "options": {
+        "colorMode": "background",
+        "graphMode": "area",
+        "justifyMode": "center",
+        "textMode": "value"
+      }
+    },
+    {
+      "id": 4,
+      "type": "stat",
+      "title": "Power",
+      "gridPos": { "x": 5, "y": 3, "w": 4, "h": 3 },
+      "datasource": { "type": "influxdb", "uid": "${DS_INFLUXDB_BMS}" },
+      "targets": [
+        {
+          "refId": "A",
+          "rawQuery": true,
+          "query": "SELECT last(\"power_w\") FROM \"bms_live\" WHERE $timeFilter",
+          "resultFormat": "time_series"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "watt",
+          "decimals": 1,
+          "color": { "mode": "thresholds" },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "color": "blue",   "value": null },
+              { "color": "gray",   "value": 0 },
+              { "color": "green",  "value": 0.1 }
+            ]
+          }
+        }
+      },
+      "options": {
+        "colorMode": "background",
+        "graphMode": "area",
+        "justifyMode": "center",
+        "textMode": "value"
+      }
+    },
+    {
+      "id": 5,
+      "type": "stat",
+      "title": "Cell delta",
+      "gridPos": { "x": 9, "y": 3, "w": 3, "h": 3 },
+      "datasource": { "type": "influxdb", "uid": "${DS_INFLUXDB_BMS}" },
+      "targets": [
+        {
+          "refId": "A",
+          "rawQuery": true,
+          "query": "SELECT last(\"cell_delta_v\") FROM \"bms_state\" WHERE $timeFilter",
+          "resultFormat": "time_series"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "volt",
+          "decimals": 3,
+          "color": { "mode": "thresholds" },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "color": "green",  "value": null },
+              { "color": "yellow", "value": 0.05 },
+              { "color": "orange", "value": 0.1 },
+              { "color": "red",    "value": 0.2 }
+            ]
+          }
+        }
+      },
+      "options": {
+        "colorMode": "background",
+        "graphMode": "area",
+        "justifyMode": "center",
+        "textMode": "value"
+      }
+    },
+    {
+      "id": 6,
+      "type": "timeseries",
+      "title": "Power flow — current (A) and power (W)",
+      "gridPos": { "x": 0, "y": 6, "w": 12, "h": 8 },
+      "datasource": { "type": "influxdb", "uid": "${DS_INFLUXDB_BMS}" },
+      "targets": [
+        {
+          "refId": "A",
+          "rawQuery": true,
+          "query": "SELECT mean(\"current_a\") AS \"Current (A)\" FROM \"bms_live\" WHERE $timeFilter GROUP BY time($__interval) fill(null)",
+          "resultFormat": "time_series"
+        },
+        {
+          "refId": "B",
+          "rawQuery": true,
+          "query": "SELECT mean(\"power_w\") AS \"Power (W)\" FROM \"bms_live\" WHERE $timeFilter GROUP BY time($__interval) fill(null)",
+          "resultFormat": "time_series"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "custom": {
+            "drawStyle": "line",
+            "lineInterpolation": "smooth",
+            "lineWidth": 2,
+            "fillOpacity": 15,
+            "gradientMode": "opacity",
+            "spanNulls": false,
+            "showPoints": "never",
+            "axisPlacement": "auto",
+            "axisLabel": ""
+          },
+          "color": { "mode": "palette-classic" },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [{ "color": "transparent", "value": null }]
+          }
+        },
+        "overrides": [
+          {
+            "matcher": { "id": "byName", "options": "Current (A)" },
+            "properties": [
+              { "id": "unit", "value": "amp" },
+              { "id": "color", "value": { "mode": "fixed", "fixedColor": "blue" } }
+            ]
+          },
+          {
+            "matcher": { "id": "byName", "options": "Power (W)" },
+            "properties": [
+              { "id": "unit", "value": "watt" },
+              { "id": "color", "value": { "mode": "fixed", "fixedColor": "orange" } },
+              { "id": "custom.axisPlacement", "value": "right" }
+            ]
+          }
+        ]
+      },
+      "options": {
+        "tooltip": { "mode": "multi", "sort": "none" },
+        "legend": { "displayMode": "table", "placement": "bottom", "calcs": ["last", "min", "max", "mean"] }
+      }
+    },
+    {
+      "id": 7,
+      "type": "timeseries",
+      "title": "Per-cell voltages",
+      "gridPos": { "x": 0, "y": 14, "w": 8, "h": 8 },
+      "datasource": { "type": "influxdb", "uid": "${DS_INFLUXDB_BMS}" },
+      "targets": [
+        {
+          "refId": "A",
+          "rawQuery": true,
+          "query": "SELECT mean(\"voltage_v\") FROM \"bms_cells\" WHERE $timeFilter GROUP BY time($__interval), \"cell_idx\" fill(previous)",
+          "resultFormat": "time_series",
+          "alias": "Cell $tag_cell_idx"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "volt",
+          "decimals": 3,
+          "custom": {
+            "drawStyle": "line",
+            "lineInterpolation": "stepAfter",
+            "lineWidth": 2,
+            "fillOpacity": 0,
+            "spanNulls": true,
+            "showPoints": "never"
+          },
+          "color": { "mode": "palette-classic" }
+        },
+        "overrides": []
+      },
+      "options": {
+        "tooltip": { "mode": "multi", "sort": "desc" },
+        "legend": { "displayMode": "table", "placement": "right", "calcs": ["last", "min", "max"] }
+      }
+    },
+    {
+      "id": 8,
+      "type": "timeseries",
+      "title": "Temperatures",
+      "gridPos": { "x": 8, "y": 14, "w": 4, "h": 8 },
+      "datasource": { "type": "influxdb", "uid": "${DS_INFLUXDB_BMS}" },
+      "targets": [
+        {
+          "refId": "A",
+          "rawQuery": true,
+          "query": "SELECT mean(\"temp_c\") FROM \"bms_temps\" WHERE $timeFilter GROUP BY time($__interval), \"ntc_idx\" fill(previous)",
+          "resultFormat": "time_series",
+          "alias": "NTC $tag_ntc_idx"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "celsius",
+          "decimals": 1,
+          "custom": {
+            "drawStyle": "line",
+            "lineInterpolation": "smooth",
+            "lineWidth": 2,
+            "fillOpacity": 10,
+            "spanNulls": true,
+            "showPoints": "never"
+          },
+          "color": { "mode": "palette-classic" }
+        }
+      },
+      "options": {
+        "tooltip": { "mode": "multi", "sort": "desc" },
+        "legend": { "displayMode": "list", "placement": "bottom", "calcs": ["last"] }
+      }
+    },
+    {
+      "id": 9,
+      "type": "state-timeline",
+      "title": "MOSFETs / Balance / Protection",
+      "gridPos": { "x": 0, "y": 22, "w": 12, "h": 5 },
+      "datasource": { "type": "influxdb", "uid": "${DS_INFLUXDB_BMS}" },
+      "targets": [
+        {
+          "refId": "A",
+          "rawQuery": true,
+          "query": "SELECT last(\"charging_mosfet\") AS \"Charge MOS\", last(\"discharging_mosfet\") AS \"Discharge MOS\", last(\"balance_active\") AS \"Balancing\", last(\"protection_active\") AS \"Protection\" FROM \"bms_live\" WHERE $timeFilter GROUP BY time($__interval) fill(previous)",
+          "resultFormat": "time_series"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "custom": { "lineWidth": 0, "fillOpacity": 90 },
+          "mappings": [
+            { "type": "value", "options": { "0": { "color": "red",   "text": "OFF",  "index": 0 } } },
+            { "type": "value", "options": { "1": { "color": "green", "text": "ON",   "index": 1 } } }
+          ],
+          "thresholds": { "mode": "absolute", "steps": [{ "color": "red", "value": null }, { "color": "green", "value": 1 }] }
+        },
+        "overrides": [
+          {
+            "matcher": { "id": "byName", "options": "Protection" },
+            "properties": [
+              { "id": "mappings", "value": [
+                  { "type": "value", "options": { "0": { "color": "green", "text": "OK",    "index": 0 } } },
+                  { "type": "value", "options": { "1": { "color": "red",   "text": "FAULT", "index": 1 } } }
+              ] }
+            ]
+          },
+          {
+            "matcher": { "id": "byName", "options": "Balancing" },
+            "properties": [
+              { "id": "mappings", "value": [
+                  { "type": "value", "options": { "0": { "color": "gray",   "text": "—",      "index": 0 } } },
+                  { "type": "value", "options": { "1": { "color": "yellow", "text": "BAL",    "index": 1 } } }
+              ] }
+            ]
+          }
+        ]
+      },
+      "options": {
+        "showValue": "auto",
+        "alignValue": "left",
+        "rowHeight": 0.9,
+        "mergeValues": true,
+        "legend": { "showLegend": true, "displayMode": "list", "placement": "bottom" },
+        "tooltip": { "mode": "single" }
+      }
+    },
+    {
+      "id": 10,
+      "type": "stat",
+      "title": "Cycles",
+      "gridPos": { "x": 0, "y": 27, "w": 3, "h": 3 },
+      "datasource": { "type": "influxdb", "uid": "${DS_INFLUXDB_BMS}" },
+      "targets": [
+        {
+          "refId": "A",
+          "rawQuery": true,
+          "query": "SELECT last(\"cycle_count\") FROM \"bms_meta\"",
+          "resultFormat": "time_series"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": { "unit": "none", "decimals": 0, "color": { "mode": "fixed", "fixedColor": "blue" } }
+      },
+      "options": { "colorMode": "value", "graphMode": "none", "justifyMode": "center", "textMode": "value_and_name" }
+    },
+    {
+      "id": 11,
+      "type": "stat",
+      "title": "Nominal capacity",
+      "gridPos": { "x": 3, "y": 27, "w": 3, "h": 3 },
+      "datasource": { "type": "influxdb", "uid": "${DS_INFLUXDB_BMS}" },
+      "targets": [
+        {
+          "refId": "A",
+          "rawQuery": true,
+          "query": "SELECT last(\"capacity_ah\") FROM \"bms_meta\"",
+          "resultFormat": "time_series"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": { "unit": "amph", "decimals": 1, "color": { "mode": "fixed", "fixedColor": "blue" } }
+      },
+      "options": { "colorMode": "value", "graphMode": "none", "justifyMode": "center", "textMode": "value_and_name" }
+    },
+    {
+      "id": 12,
+      "type": "stat",
+      "title": "Remaining",
+      "gridPos": { "x": 6, "y": 27, "w": 3, "h": 3 },
+      "datasource": { "type": "influxdb", "uid": "${DS_INFLUXDB_BMS}" },
+      "targets": [
+        {
+          "refId": "A",
+          "rawQuery": true,
+          "query": "SELECT last(\"remaining_ah\") FROM \"bms_live\" WHERE $timeFilter",
+          "resultFormat": "time_series"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": { "unit": "amph", "decimals": 2, "color": { "mode": "fixed", "fixedColor": "green" } }
+      },
+      "options": { "colorMode": "value", "graphMode": "none", "justifyMode": "center", "textMode": "value_and_name" }
+    },
+    {
+      "id": 13,
+      "type": "stat",
+      "title": "Cell / NTC count",
+      "gridPos": { "x": 9, "y": 27, "w": 3, "h": 3 },
+      "datasource": { "type": "influxdb", "uid": "${DS_INFLUXDB_BMS}" },
+      "targets": [
+        {
+          "refId": "A",
+          "rawQuery": true,
+          "query": "SELECT last(\"cell_count\") AS \"cells\", last(\"ntc_count\") AS \"NTCs\" FROM \"bms_meta\"",
+          "resultFormat": "time_series"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": { "unit": "none", "decimals": 0, "color": { "mode": "fixed", "fixedColor": "purple" } }
+      },
+      "options": { "colorMode": "value", "graphMode": "none", "justifyMode": "center", "textMode": "value_and_name" }
+    }
+  ],
+  "refresh": "30s",
+  "schemaVersion": 39,
+  "tags": ["bms", "conexpro", "jbd", "lifepo4"],
+  "templating": { "list": [] },
+  "time": { "from": "now-24h", "to": "now" },
+  "timepicker": {},
+  "timezone": "",
+  "title": "Conexpro BMS",
+  "uid": "conexpro-bms",
+  "version": 1,
+  "weekStart": "",
+  "__inputs": [
+    {
+      "name": "DS_INFLUXDB_BMS",
+      "label": "InfluxDB BMS",
+      "description": "InfluxDB 1.x datasource pointing at the bms database",
+      "type": "datasource",
+      "pluginId": "influxdb",
+      "pluginName": "InfluxDB"
+    }
+  ]
+}

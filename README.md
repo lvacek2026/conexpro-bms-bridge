@@ -183,16 +183,49 @@ pattern as
 * **Node-RED** — `mqtt in` node subscribed to `<MQTT_TOPIC>/state` with
   `Output: a parsed JSON object`. There's a ready-to-import flow at
   [`examples/node-red-flow.json`](examples/node-red-flow.json) — it
-  subscribes, exposes the latest snapshot in `flow.bms_latest`, and shows a
+  subscribes, exposes the latest snapshot in `flow.bms_latest`, **writes
+  decimated time series to InfluxDB 1.x** (see schema below), and shows a
   one-line node status with live SoC / V / A.
 * **Home Assistant** — set `HA_DISCOVERY=true` and HA will create a "Conexpro
   BMS" device with voltage / current / SoC / per-cell stats / MOSFET / fault
   binary sensors. No YAML required.
-* **InfluxDB / Grafana** — point Telegraf's `[[inputs.mqtt_consumer]]` at
-  `<MQTT_TOPIC>/state` with JSON parsing; every numeric field becomes a
-  measurement.
-* **Anything else** — the topic is plain JSON. Subscribe with `mosquitto_sub`,
-  Python `paho-mqtt`, MQTT.js, your call.
+* **InfluxDB + Grafana** — the Node-RED flow above writes to InfluxDB with
+  per-metric decimation (see "InfluxDB schema" below). The matching dashboard
+  is [`examples/grafana-dashboard.json`](examples/grafana-dashboard.json) —
+  drop-in import (Grafana → Dashboards → New → Import → Upload JSON, then
+  pick your InfluxDB datasource).
+* **Telegraf direct** — alternatively, point Telegraf's
+  `[[inputs.mqtt_consumer]]` at `<MQTT_TOPIC>/state` with JSON parsing;
+  every numeric field becomes a measurement (no decimation though).
+* **Anything else** — the topic is plain JSON. Subscribe with
+  `mosquitto_sub`, Python `paho-mqtt`, MQTT.js, your call.
+
+### InfluxDB schema (written by the example Node-RED flow)
+
+The flow's `decimate → influx writes` function splits one BMS document
+(arriving every `POLL_INTERVAL`, default 30 s) into multiple writes at
+different rates so you don't accumulate gigabytes of redundant `cycle_count`
+samples while still catching every charge/discharge transient.
+
+| Measurement | Rate | Tags | Fields |
+|-------------|------|------|--------|
+| `bms_live`  | every tick (~30 s) | `device` | `voltage_v`, `current_a`, `power_w`, `soc_pct`, `remaining_ah`, `charging_mosfet`, `discharging_mosfet`, `balance_active`, `protection_active` (bools as 0/1) |
+| `bms_state` | every 5 min OR on cell-delta / protection / balance change | `device` | `cell_min_v`, `cell_max_v`, `cell_delta_v`, `cell_min_idx`, `cell_max_idx` |
+| `bms_cells` | every 10 min OR on >5 mV per-cell change | `device`, `cell_idx` | `voltage_v` (per cell) |
+| `bms_temps` | every 10 min OR on >0.5 °C change | `device`, `ntc_idx` | `temp_c` (per NTC) |
+| `bms_meta`  | hourly | `device` | `cycle_count`, `capacity_ah`, `cell_count`, `ntc_count` |
+
+Suggested DB setup (one-time):
+
+```bash
+docker exec influxdb influx -execute "CREATE DATABASE bms WITH DURATION 90d"
+docker exec influxdb influx -execute "CREATE RETENTION POLICY \"1y_hourly\" ON \"bms\" DURATION 365d REPLICATION 1"
+docker exec influxdb influx -execute "CREATE CONTINUOUS QUERY cq_bms_live_hourly ON bms BEGIN SELECT mean(voltage_v) AS voltage_v, mean(current_a) AS current_a, mean(power_w) AS power_w, mean(soc_pct) AS soc_pct, mean(remaining_ah) AS remaining_ah, max(current_a) AS current_max_a, min(current_a) AS current_min_a INTO \"1y_hourly\".bms_live_1h FROM bms_live GROUP BY time(1h), * END"
+```
+
+That gives you **90 days of full-resolution** raw data plus **1 year of
+hourly aggregates** automatically downsampled. On a 4S BMS this is well
+under 100 MB / year.
 
 ## Troubleshooting
 
