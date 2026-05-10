@@ -12,7 +12,7 @@
       }
     ]
   },
-  "description": "Conexpro / JBD / Xiaoxiang Smart BMS — full-width Tesla/Victron-style overview. Live SoC bar, pack V/I/P, cell voltages with running delta, temperatures, state timeline, and meta footer. Designed against the schema written by node-red-contrib-influxdb from the conexpro-bms-bridge MQTT data, using the grafana-energy-viz colour semantics.",
+  "description": "Conexpro / JBD / Xiaoxiang Smart BMS — mobile-first single-column layout. Most-critical info at the top (SoC, live V/I/P, balance health, fault timeline) so a phone glance answers \"is the battery OK?\". Historical charts below with bottom list legends so the chart never gets squeezed by a sidebar legend. Schema = node-red-contrib-influxdb writes from conexpro-bms-bridge. Colours per the grafana-energy-viz skill.",
   "editable": true,
   "fiscalYearStartMonth": 0,
   "graphTooltip": 1,
@@ -24,7 +24,7 @@
       "id": 1,
       "type": "bargauge",
       "title": "State of charge",
-      "gridPos": { "x": 0, "y": 0, "w": 12, "h": 6 },
+      "gridPos": { "x": 0, "y": 0, "w": 24, "h": 5 },
       "datasource": { "type": "influxdb", "uid": "${DS_INFLUXDB_BMS}" },
       "targets": [
         {
@@ -58,7 +58,7 @@
         "showUnfilled": true,
         "valueMode": "color",
         "minVizWidth": 200,
-        "minVizHeight": 16,
+        "minVizHeight": 32,
         "namePlacement": "hidden",
         "reduceOptions": { "calcs": ["lastNotNull"], "fields": "", "values": false }
       }
@@ -67,7 +67,7 @@
       "id": 2,
       "type": "stat",
       "title": "Pack voltage",
-      "gridPos": { "x": 12, "y": 0, "w": 4, "h": 3 },
+      "gridPos": { "x": 0, "y": 5, "w": 8, "h": 4 },
       "datasource": { "type": "influxdb", "uid": "${DS_INFLUXDB_BMS}" },
       "targets": [
         {
@@ -98,7 +98,7 @@
         "colorMode": "background",
         "graphMode": "area",
         "justifyMode": "center",
-        "textMode": "value",
+        "textMode": "value_and_name",
         "reduceOptions": { "calcs": ["lastNotNull"], "fields": "", "values": false }
       }
     },
@@ -106,7 +106,7 @@
       "id": 3,
       "type": "stat",
       "title": "Current",
-      "gridPos": { "x": 16, "y": 0, "w": 4, "h": 3 },
+      "gridPos": { "x": 8, "y": 5, "w": 8, "h": 4 },
       "datasource": { "type": "influxdb", "uid": "${DS_INFLUXDB_BMS}" },
       "targets": [
         {
@@ -138,7 +138,7 @@
         "colorMode": "background",
         "graphMode": "area",
         "justifyMode": "center",
-        "textMode": "value",
+        "textMode": "value_and_name",
         "reduceOptions": { "calcs": ["lastNotNull"], "fields": "", "values": false }
       }
     },
@@ -146,7 +146,7 @@
       "id": 4,
       "type": "stat",
       "title": "Power",
-      "gridPos": { "x": 20, "y": 0, "w": 4, "h": 3 },
+      "gridPos": { "x": 16, "y": 5, "w": 8, "h": 4 },
       "datasource": { "type": "influxdb", "uid": "${DS_INFLUXDB_BMS}" },
       "targets": [
         {
@@ -178,15 +178,15 @@
         "colorMode": "background",
         "graphMode": "area",
         "justifyMode": "center",
-        "textMode": "value",
+        "textMode": "value_and_name",
         "reduceOptions": { "calcs": ["lastNotNull"], "fields": "", "values": false }
       }
     },
     {
       "id": 5,
       "type": "stat",
-      "title": "Cell delta — now",
-      "gridPos": { "x": 12, "y": 3, "w": 4, "h": 3 },
+      "title": "Δ now",
+      "gridPos": { "x": 0, "y": 9, "w": 8, "h": 4 },
       "datasource": { "type": "influxdb", "uid": "${DS_INFLUXDB_BMS}" },
       "targets": [
         {
@@ -216,15 +216,15 @@
         "colorMode": "background",
         "graphMode": "area",
         "justifyMode": "center",
-        "textMode": "value",
+        "textMode": "value_and_name",
         "reduceOptions": { "calcs": ["lastNotNull"], "fields": "", "values": false }
       }
     },
     {
       "id": 6,
       "type": "stat",
-      "title": "Cell delta — max in range",
-      "gridPos": { "x": 16, "y": 3, "w": 4, "h": 3 },
+      "title": "Δ max (range)",
+      "gridPos": { "x": 8, "y": 9, "w": 8, "h": 4 },
       "datasource": { "type": "influxdb", "uid": "${DS_INFLUXDB_BMS}" },
       "targets": [
         {
@@ -254,7 +254,7 @@
         "colorMode": "background",
         "graphMode": "none",
         "justifyMode": "center",
-        "textMode": "value",
+        "textMode": "value_and_name",
         "reduceOptions": { "calcs": ["lastNotNull"], "fields": "", "values": false }
       }
     },
@@ -262,7 +262,7 @@
       "id": 7,
       "type": "stat",
       "title": "Remaining",
-      "gridPos": { "x": 20, "y": 3, "w": 4, "h": 3 },
+      "gridPos": { "x": 16, "y": 9, "w": 8, "h": 4 },
       "datasource": { "type": "influxdb", "uid": "${DS_INFLUXDB_BMS}" },
       "targets": [
         {
@@ -283,28 +283,83 @@
         "colorMode": "value",
         "graphMode": "area",
         "justifyMode": "center",
-        "textMode": "value",
+        "textMode": "value_and_name",
         "reduceOptions": { "calcs": ["lastNotNull"], "fields": "", "values": false }
       }
     },
     {
       "id": 8,
-      "type": "timeseries",
-      "title": "Power flow — current (A) and power (W)",
-      "gridPos": { "x": 0, "y": 6, "w": 24, "h": 8 },
+      "type": "state-timeline",
+      "title": "MOSFETs / Balance / Protection",
+      "gridPos": { "x": 0, "y": 13, "w": 24, "h": 4 },
       "datasource": { "type": "influxdb", "uid": "${DS_INFLUXDB_BMS}" },
       "targets": [
         {
           "refId": "A",
           "rawQuery": true,
-          "query": "SELECT mean(\"current_a\") AS \"Current\" FROM \"bms_live\" WHERE $timeFilter GROUP BY time($__interval) fill(null)",
+          "query": "SELECT last(\"charging_mosfet\") AS \"Charge MOS\", last(\"discharging_mosfet\") AS \"Discharge MOS\", last(\"balance_active\") AS \"Balancing\", last(\"protection_active\") AS \"Protection\" FROM \"bms_live\" WHERE $timeFilter GROUP BY time($__interval) fill(previous)",
           "resultFormat": "time_series"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "custom": { "lineWidth": 0, "fillOpacity": 90 },
+          "mappings": [
+            { "type": "value", "options": { "0": { "color": "#6b7280", "text": "OFF", "index": 0 } } },
+            { "type": "value", "options": { "1": { "color": "#16a34a", "text": "ON",  "index": 1 } } }
+          ],
+          "thresholds": { "mode": "absolute", "steps": [ { "color": "#6b7280", "value": null }, { "color": "#16a34a", "value": 1 } ] }
+        },
+        "overrides": [
+          {
+            "matcher": { "id": "byName", "options": "Protection" },
+            "properties": [
+              { "id": "mappings", "value": [
+                { "type": "value", "options": { "0": { "color": "#16a34a", "text": "OK",    "index": 0 } } },
+                { "type": "value", "options": { "1": { "color": "#dc2626", "text": "FAULT", "index": 1 } } }
+              ] }
+            ]
+          },
+          {
+            "matcher": { "id": "byName", "options": "Balancing" },
+            "properties": [
+              { "id": "mappings", "value": [
+                { "type": "value", "options": { "0": { "color": "#6b7280", "text": "—",   "index": 0 } } },
+                { "type": "value", "options": { "1": { "color": "#facc15", "text": "BAL", "index": 1 } } }
+              ] }
+            ]
+          }
+        ]
+      },
+      "options": {
+        "showValue": "auto",
+        "alignValue": "center",
+        "rowHeight": 0.85,
+        "mergeValues": true,
+        "legend": { "showLegend": true, "displayMode": "list", "placement": "bottom" },
+        "tooltip": { "mode": "single" }
+      }
+    },
+    {
+      "id": 9,
+      "type": "timeseries",
+      "title": "Power flow — current (A) and power (W)",
+      "gridPos": { "x": 0, "y": 17, "w": 24, "h": 8 },
+      "datasource": { "type": "influxdb", "uid": "${DS_INFLUXDB_BMS}" },
+      "targets": [
+        {
+          "refId": "A",
+          "rawQuery": true,
+          "query": "SELECT mean(\"current_a\") FROM \"bms_live\" WHERE $timeFilter GROUP BY time($__interval) fill(null)",
+          "resultFormat": "time_series",
+          "alias": "Current"
         },
         {
           "refId": "B",
           "rawQuery": true,
-          "query": "SELECT mean(\"power_w\") AS \"Power\" FROM \"bms_live\" WHERE $timeFilter GROUP BY time($__interval) fill(null)",
-          "resultFormat": "time_series"
+          "query": "SELECT mean(\"power_w\") FROM \"bms_live\" WHERE $timeFilter GROUP BY time($__interval) fill(null)",
+          "resultFormat": "time_series",
+          "alias": "Power"
         }
       ],
       "fieldConfig": {
@@ -349,14 +404,14 @@
       },
       "options": {
         "tooltip": { "mode": "multi", "sort": "none" },
-        "legend": { "displayMode": "table", "placement": "bottom", "calcs": ["last", "min", "max", "mean"] }
+        "legend": { "displayMode": "list", "placement": "bottom", "calcs": ["lastNotNull"] }
       }
     },
     {
-      "id": 9,
+      "id": 10,
       "type": "timeseries",
       "title": "Per-cell voltages",
-      "gridPos": { "x": 0, "y": 14, "w": 14, "h": 8 },
+      "gridPos": { "x": 0, "y": 25, "w": 24, "h": 9 },
       "datasource": { "type": "influxdb", "uid": "${DS_INFLUXDB_BMS}" },
       "targets": [
         {
@@ -405,14 +460,14 @@
       },
       "options": {
         "tooltip": { "mode": "multi", "sort": "desc" },
-        "legend": { "displayMode": "table", "placement": "right", "calcs": ["last", "min", "max"], "width": 200 }
+        "legend": { "displayMode": "list", "placement": "bottom", "calcs": ["lastNotNull"] }
       }
     },
     {
-      "id": 10,
+      "id": 11,
       "type": "timeseries",
       "title": "Temperatures",
-      "gridPos": { "x": 14, "y": 14, "w": 10, "h": 8 },
+      "gridPos": { "x": 0, "y": 34, "w": 24, "h": 7 },
       "datasource": { "type": "influxdb", "uid": "${DS_INFLUXDB_BMS}" },
       "targets": [
         {
@@ -449,67 +504,14 @@
       },
       "options": {
         "tooltip": { "mode": "multi", "sort": "desc" },
-        "legend": { "displayMode": "table", "placement": "right", "calcs": ["last", "min", "max"], "width": 160 }
-      }
-    },
-    {
-      "id": 11,
-      "type": "state-timeline",
-      "title": "MOSFETs / Balance / Protection",
-      "gridPos": { "x": 0, "y": 22, "w": 24, "h": 4 },
-      "datasource": { "type": "influxdb", "uid": "${DS_INFLUXDB_BMS}" },
-      "targets": [
-        {
-          "refId": "A",
-          "rawQuery": true,
-          "query": "SELECT last(\"charging_mosfet\") AS \"Charge MOS\", last(\"discharging_mosfet\") AS \"Discharge MOS\", last(\"balance_active\") AS \"Balancing\", last(\"protection_active\") AS \"Protection\" FROM \"bms_live\" WHERE $timeFilter GROUP BY time($__interval) fill(previous)",
-          "resultFormat": "time_series"
-        }
-      ],
-      "fieldConfig": {
-        "defaults": {
-          "custom": { "lineWidth": 0, "fillOpacity": 90 },
-          "mappings": [
-            { "type": "value", "options": { "0": { "color": "#6b7280", "text": "OFF", "index": 0 } } },
-            { "type": "value", "options": { "1": { "color": "#16a34a", "text": "ON", "index": 1 } } }
-          ],
-          "thresholds": { "mode": "absolute", "steps": [ { "color": "#6b7280", "value": null }, { "color": "#16a34a", "value": 1 } ] }
-        },
-        "overrides": [
-          {
-            "matcher": { "id": "byName", "options": "Protection" },
-            "properties": [
-              { "id": "mappings", "value": [
-                { "type": "value", "options": { "0": { "color": "#16a34a", "text": "OK",    "index": 0 } } },
-                { "type": "value", "options": { "1": { "color": "#dc2626", "text": "FAULT", "index": 1 } } }
-              ] }
-            ]
-          },
-          {
-            "matcher": { "id": "byName", "options": "Balancing" },
-            "properties": [
-              { "id": "mappings", "value": [
-                { "type": "value", "options": { "0": { "color": "#6b7280", "text": "—",   "index": 0 } } },
-                { "type": "value", "options": { "1": { "color": "#facc15", "text": "BAL", "index": 1 } } }
-              ] }
-            ]
-          }
-        ]
-      },
-      "options": {
-        "showValue": "auto",
-        "alignValue": "left",
-        "rowHeight": 0.9,
-        "mergeValues": true,
-        "legend": { "showLegend": true, "displayMode": "list", "placement": "bottom" },
-        "tooltip": { "mode": "single" }
+        "legend": { "displayMode": "list", "placement": "bottom", "calcs": ["lastNotNull"] }
       }
     },
     {
       "id": 12,
       "type": "stat",
       "title": "Cycles",
-      "gridPos": { "x": 0, "y": 26, "w": 6, "h": 3 },
+      "gridPos": { "x": 0, "y": 41, "w": 6, "h": 3 },
       "datasource": { "type": "influxdb", "uid": "${DS_INFLUXDB_BMS}" },
       "targets": [
         {
@@ -522,13 +524,13 @@
       "fieldConfig": {
         "defaults": { "unit": "none", "decimals": 0, "color": { "mode": "fixed", "fixedColor": "#3b82f6" } }
       },
-      "options": { "colorMode": "value", "graphMode": "none", "justifyMode": "center", "textMode": "value" }
+      "options": { "colorMode": "value", "graphMode": "none", "justifyMode": "center", "textMode": "value_and_name" }
     },
     {
       "id": 13,
       "type": "stat",
-      "title": "Nominal capacity",
-      "gridPos": { "x": 6, "y": 26, "w": 6, "h": 3 },
+      "title": "Capacity",
+      "gridPos": { "x": 6, "y": 41, "w": 6, "h": 3 },
       "datasource": { "type": "influxdb", "uid": "${DS_INFLUXDB_BMS}" },
       "targets": [
         {
@@ -541,13 +543,13 @@
       "fieldConfig": {
         "defaults": { "unit": "amph", "decimals": 1, "color": { "mode": "fixed", "fixedColor": "#3b82f6" } }
       },
-      "options": { "colorMode": "value", "graphMode": "none", "justifyMode": "center", "textMode": "value" }
+      "options": { "colorMode": "value", "graphMode": "none", "justifyMode": "center", "textMode": "value_and_name" }
     },
     {
       "id": 14,
       "type": "stat",
       "title": "Cells",
-      "gridPos": { "x": 12, "y": 26, "w": 6, "h": 3 },
+      "gridPos": { "x": 12, "y": 41, "w": 6, "h": 3 },
       "datasource": { "type": "influxdb", "uid": "${DS_INFLUXDB_BMS}" },
       "targets": [
         {
@@ -560,13 +562,13 @@
       "fieldConfig": {
         "defaults": { "unit": "none", "decimals": 0, "color": { "mode": "fixed", "fixedColor": "#a855f7" } }
       },
-      "options": { "colorMode": "value", "graphMode": "none", "justifyMode": "center", "textMode": "value" }
+      "options": { "colorMode": "value", "graphMode": "none", "justifyMode": "center", "textMode": "value_and_name" }
     },
     {
       "id": 15,
       "type": "stat",
       "title": "NTC sensors",
-      "gridPos": { "x": 18, "y": 26, "w": 6, "h": 3 },
+      "gridPos": { "x": 18, "y": 41, "w": 6, "h": 3 },
       "datasource": { "type": "influxdb", "uid": "${DS_INFLUXDB_BMS}" },
       "targets": [
         {
@@ -579,7 +581,7 @@
       "fieldConfig": {
         "defaults": { "unit": "none", "decimals": 0, "color": { "mode": "fixed", "fixedColor": "#a855f7" } }
       },
-      "options": { "colorMode": "value", "graphMode": "none", "justifyMode": "center", "textMode": "value" }
+      "options": { "colorMode": "value", "graphMode": "none", "justifyMode": "center", "textMode": "value_and_name" }
     }
   ],
   "refresh": "30s",
@@ -591,7 +593,7 @@
   "timezone": "",
   "title": "Conexpro BMS",
   "uid": "conexpro-bms",
-  "version": 2,
+  "version": 4,
   "weekStart": "",
   "__inputs": [
     {
