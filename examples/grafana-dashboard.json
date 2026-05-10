@@ -355,7 +355,7 @@
     {
       "id": 9,
       "type": "timeseries",
-      "title": "Per-cell voltages (with running delta)",
+      "title": "Per-cell voltages",
       "gridPos": { "x": 0, "y": 14, "w": 14, "h": 8 },
       "datasource": { "type": "influxdb", "uid": "${DS_INFLUXDB_BMS}" },
       "targets": [
@@ -369,8 +369,9 @@
         {
           "refId": "B",
           "rawQuery": true,
-          "query": "SELECT mean(\"cell_delta_v\") * 1000 AS \"Delta\" FROM \"bms_state\" WHERE $timeFilter GROUP BY time($__interval) fill(previous)",
-          "resultFormat": "time_series"
+          "query": "SELECT mean(\"cell_delta_v\") * 1000 FROM \"bms_state\" WHERE $timeFilter GROUP BY time($__interval) fill(previous)",
+          "resultFormat": "time_series",
+          "alias": "Cell Δ (mV)"
         }
       ],
       "fieldConfig": {
@@ -389,14 +390,13 @@
         },
         "overrides": [
           {
-            "matcher": { "id": "byName", "options": "Delta" },
+            "matcher": { "id": "byName", "options": "Cell Δ (mV)" },
             "properties": [
               { "id": "unit", "value": "mvolt" },
+              { "id": "decimals", "value": 0 },
               { "id": "color", "value": { "mode": "fixed", "fixedColor": "#facc15" } },
               { "id": "custom.axisPlacement", "value": "right" },
-              { "id": "custom.drawStyle", "value": "line" },
               { "id": "custom.lineInterpolation", "value": "smooth" },
-              { "id": "custom.lineWidth", "value": 2 },
               { "id": "custom.fillOpacity", "value": 12 },
               { "id": "custom.lineStyle", "value": { "fill": "dash", "dash": [6, 4] } }
             ]
@@ -405,7 +405,7 @@
       },
       "options": {
         "tooltip": { "mode": "multi", "sort": "desc" },
-        "legend": { "displayMode": "table", "placement": "bottom", "calcs": ["last", "min", "max"] }
+        "legend": { "displayMode": "table", "placement": "right", "calcs": ["last", "min", "max"], "width": 200 }
       }
     },
     {
@@ -449,7 +449,7 @@
       },
       "options": {
         "tooltip": { "mode": "multi", "sort": "desc" },
-        "legend": { "displayMode": "table", "placement": "bottom", "calcs": ["last", "min", "max"] }
+        "legend": { "displayMode": "table", "placement": "right", "calcs": ["last", "min", "max"], "width": 160 }
       }
     },
     {
